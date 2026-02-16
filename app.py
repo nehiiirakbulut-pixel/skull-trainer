@@ -386,7 +386,7 @@ with tabs[0]:
                     if ok:
                         s["correct"] += 1
                         st.success("Doğru ✅")
-st.toast("🔥 Nice! +10 XP", icon="🧠")
+                        st.toast("🔥 Nice! +10 XP", icon="🧠")
                     else:
                         st.toast("😈 Almost. Review’e düştü.", icon="📌")
                         log_wrong(USER_ID, cur["q"], user, cur["ans"])
