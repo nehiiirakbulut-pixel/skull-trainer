@@ -542,4 +542,4 @@ with tabs[4]:
         if st.button("🧹 Stats sıfırla", use_container_width=True):
             reset_stats(USER_ID)
             st.success("Sıfırlandı.")
-    with colB:
+
