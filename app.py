@@ -1,188 +1,55 @@
-import random
-from pathlib import Path
-import streamlit as st
-
-# ---------------- FILES ----------------
-
-SCORE_FILE = Path("stats.txt")
-WRONG_FILE = Path("wrong.txt")
-
-# ---------------- DATA ----------------
-
-BONES = [
-    {"name": "Frontal", "latin": "Os frontale", "category": "neurocranium",
-     "landmarks": ["Supraorbital foramen", "Glabella", "Frontal sinus"]},
-
-    {"name": "Parietal", "latin": "Os parietale", "category": "neurocranium",
-     "landmarks": ["Parietal foramen", "Superior temporal line"]},
-
-    {"name": "Temporal", "latin": "Os temporale", "category": "neurocranium",
-     "landmarks": ["Mastoid process", "Styloid process", "External acoustic meatus"]},
-
-    {"name": "Occipital", "latin": "Os occipitale", "category": "neurocranium",
-     "landmarks": ["Foramen magnum", "Occipital condyles"]},
-
-    {"name": "Sphenoid", "latin": "Os sphenoidale", "category": "neurocranium",
-     "landmarks": ["Sella turcica", "Optic canal", "Superior orbital fissure"]},
-
-    {"name": "Ethmoid", "latin": "Os ethmoidale", "category": "neurocranium",
-     "landmarks": ["Cribriform plate", "Crista galli"]},
-
-    {"name": "Maxilla", "latin": "Maxilla", "category": "viscerocranium",
-     "landmarks": ["Infraorbital foramen", "Maxillary sinus"]},
-
-    {"name": "Mandible", "latin": "Mandibula", "category": "viscerocranium",
-     "landmarks": ["Mental foramen", "Mandibular foramen"]},
-]
-
-# ---------------- HELPERS ----------------
-
-def load_stats():
-    if not SCORE_FILE.exists():
-        return 0, 0
-    try:
-        c, t = map(int, SCORE_FILE.read_text().split())
-        return c, t
-    except:
-        return 0, 0
-
-def save_stats(c_add, t_add):
-    c, t = load_stats()
-    SCORE_FILE.write_text(f"{c + c_add} {t + t_add}")
-
-def log_wrong(q, user, correct):
-    with open(WRONG_FILE, "a", encoding="utf-8") as f:
-        f.write(f"{q}\t{user}\t{correct}\n")
-
-def load_wrongs():
-    if not WRONG_FILE.exists():
-        return []
-    lines = WRONG_FILE.read_text(encoding="utf-8").splitlines()
-    out = []
-    for l in lines:
-        parts = l.split("\t")
-        if len(parts) == 3:
-            out.append(parts)
-    return out
-
-# ---------------- QUIZ LOGIC ----------------
-
-def make_question(bone):
-    mode = random.choice(["latin", "category", "landmark"])
-
-    if mode == "latin":
-        return f"{bone['name']} kemiğinin Latin adı?", bone["latin"], mode
-
-    if mode == "category":
-        return f"{bone['name']} hangi grupta? (neurocranium / viscerocranium)", bone["category"], mode
-
-    example = random.choice(bone["landmarks"])
-    return f"{bone['name']} ile ilişkili landmark yaz (örn: {example})", " / ".join(bone["landmarks"]), mode
-
-
-def check(mode, bone, user, correct):
-    u = user.lower().strip()
-    if not u:
-        return False
-    if mode == "landmark":
-        return u in [x.lower() for x in bone["landmarks"]]
-    return u == correct.lower()
-
-# ---------------- UI ----------------
-
-st.set_page_config("Skull Trainer", "🧠")
-st.title("🧠 Skull Trainer Web App")
-
-quiz_tab, review_tab, stats_tab = st.tabs(["Quiz", "Review", "Stats"])
-
-# -------- STATS --------
-
-with stats_tab:
-    c, t = load_stats()
-    st.metric("Toplam Skor", f"{c}/{t}")
-    if t:
-        st.progress(c / t)
-
-# -------- QUIZ --------
-
-with quiz_tab:
-    if "current" not in st.session_state:
-        st.session_state.current = None
-        st.session_state.correct = 0
-        st.session_state.total = 0
-
-    if st.button("🎯 Yeni Quiz Başlat"):
-        pool = BONES[:]
-        random.shuffle(pool)
-        st.session_state.pool = pool[:8]
-        st.session_state.index = 0
-        st.session_state.correct = 0
-        st.session_state.total = len(st.session_state.pool)
-        st.session_state.current = None
-
-    if "pool" in st.session_state and st.session_state.index < st.session_state.total:
-
-        if st.session_state.current is None:
-            bone = st.session_state.pool[st.session_state.index]
-            q, ans, mode = make_question(bone)
-            st.session_state.current = (bone, q, ans, mode)
-
-        bone, q, ans, mode = st.session_state.current
-        st.info(q)
-
-        user = st.text_input("Cevabın", key=str(st.session_state.index))
-
-        if st.button("Cevapla"):
-            if check(mode, bone, user, ans):
-                st.success("Doğru ✅")
-                st.session_state.correct += 1
-            else:
-                st.error(f"Yanlış ❌ Doğru: {ans}")
-                log_wrong(q, user, ans)
-
-            st.session_state.index += 1
-            st.session_state.current = None
-
-            if st.session_state.index >= st.session_state.total:
-                save_stats(st.session_state.correct, st.session_state.total)
-                st.success(f"Quiz bitti! Skor: {st.session_state.correct}/{st.session_state.total}")
-
-# -------- REVIEW --------
-
-with review_tab:
-    wrongs = load_wrongs()
-
-    if not wrongs:
-        st.write("Henüz yanlış yok 😌")
-    else:
-        for q, user, correct in wrongs[-10:]:
-            st.warning(q)
-            st.write(f"Sen: {user}")
-            st.write(f"Doğru: {correct}")
-            st.divider()
+import json
 import random
 import time
+from dataclasses import dataclass
 from pathlib import Path
+
 import streamlit as st
 
-# -------------------- FILES --------------------
-SCORE_FILE = Path("stats.txt")
-WRONG_FILE = Path("wrong.txt")
+# -------------------- CONFIG --------------------
+st.set_page_config(page_title="Skull Trainer", page_icon="🧠", layout="centered")
+
+DATA_DIR = Path("data")
+DATA_DIR.mkdir(exist_ok=True)
+USERS_DB = DATA_DIR / "users.json"  # user-specific storage
+
 ASSETS_DIR = Path("assets/bones")
 
+MOBILE_CSS = """
+<style>
+.block-container { padding-top: 1.1rem; padding-bottom: 3rem; max-width: 920px; }
+h1, h2, h3 { letter-spacing: -0.02em; }
+
+.stButton button {
+  border-radius: 14px !important;
+  padding: 0.72rem 1.0rem !important;
+  font-weight: 650 !important;
+}
+div[data-baseweb="input"] input {
+  border-radius: 12px !important;
+  padding-top: 0.65rem !important;
+  padding-bottom: 0.65rem !important;
+}
+@media (max-width: 600px) {
+  .block-container { padding-left: 1rem; padding-right: 1rem; }
+  h1 { font-size: 2rem !important; }
+}
+</style>
+"""
+st.markdown(MOBILE_CSS, unsafe_allow_html=True)
+
 # -------------------- DATA --------------------
-# İstersen bunu sonra JSON'a taşırız. Şimdilik net ve stabil.
 BONES = [
     {"name": "Frontal",   "latin": "Os frontale",   "category": "neurocranium",
      "landmarks": ["Supraorbital foramen", "Glabella", "Frontal sinus"]},
     {"name": "Parietal",  "latin": "Os parietale",  "category": "neurocranium",
      "landmarks": ["Parietal foramen", "Superior temporal line"]},
     {"name": "Temporal",  "latin": "Os temporale",  "category": "neurocranium",
-     "landmarks": ["Mastoid process", "Styloid process", "External acoustic meatus"]},
+     "landmarks": ["Mastoid process", "Styloid process", "External acoustic meatus", "Carotid canal"]},
     {"name": "Occipital", "latin": "Os occipitale", "category": "neurocranium",
-     "landmarks": ["Foramen magnum", "Occipital condyles", "External occipital protuberance"]},
+     "landmarks": ["Foramen magnum", "Occipital condyles", "External occipital protuberance", "Hypoglossal canal"]},
     {"name": "Sphenoid",  "latin": "Os sphenoidale","category": "neurocranium",
-     "landmarks": ["Sella turcica", "Optic canal", "Superior orbital fissure"]},
+     "landmarks": ["Sella turcica", "Optic canal", "Superior orbital fissure", "Foramen rotundum", "Foramen ovale", "Foramen spinosum"]},
     {"name": "Ethmoid",   "latin": "Os ethmoidale", "category": "neurocranium",
      "landmarks": ["Cribriform plate", "Crista galli"]},
     {"name": "Maxilla",   "latin": "Maxilla",       "category": "viscerocranium",
@@ -195,126 +62,110 @@ BONES = [
      "landmarks": ["Nasion"]},
 ]
 
-NAME_TO_BONE = {b["name"].lower(): b for b in BONES}
+# Cranial nerves & foramina (Kurul modu)
+CN_FORAMINA = [
+    {"cn": "CN I",  "name": "Olfactory",      "foramen": "Cribriform plate"},
+    {"cn": "CN II", "name": "Optic",          "foramen": "Optic canal"},
+    {"cn": "CN III","name": "Oculomotor",     "foramen": "Superior orbital fissure"},
+    {"cn": "CN IV", "name": "Trochlear",      "foramen": "Superior orbital fissure"},
+    {"cn": "CN V1", "name": "Ophthalmic",     "foramen": "Superior orbital fissure"},
+    {"cn": "CN V2", "name": "Maxillary",      "foramen": "Foramen rotundum"},
+    {"cn": "CN V3", "name": "Mandibular",     "foramen": "Foramen ovale"},
+    {"cn": "CN VI", "name": "Abducens",       "foramen": "Superior orbital fissure"},
+    {"cn": "CN VII","name": "Facial",         "foramen": "Internal acoustic meatus"},
+    {"cn": "CN VIII","name":"Vestibulocochlear","foramen":"Internal acoustic meatus"},
+    {"cn": "CN IX", "name": "Glossopharyngeal","foramen": "Jugular foramen"},
+    {"cn": "CN X",  "name": "Vagus",          "foramen": "Jugular foramen"},
+    {"cn": "CN XI", "name": "Accessory",      "foramen": "Jugular foramen"},
+    {"cn": "CN XII","name": "Hypoglossal",    "foramen": "Hypoglossal canal"},
+    {"cn": "CN VII (exit)", "name":"Facial (exit)", "foramen":"Stylomastoid foramen"},
+]
 
-# -------------------- MOBILE UI (CSS) --------------------
-MOBILE_CSS = """
-<style>
-/* genel */
-.block-container { padding-top: 1.2rem; padding-bottom: 3rem; max-width: 900px; }
-h1, h2, h3 { letter-spacing: -0.02em; }
+# -------------------- USER ID (per-user, not mixed) --------------------
+def short_id(n=8):
+    alphabet = "abcdefghijkmnpqrstuvwxyz23456789"
+    return "".join(random.choice(alphabet) for _ in range(n))
 
-/* butonlar daha dokunmatik */
-.stButton button {
-  border-radius: 14px !important;
-  padding: 0.70rem 1.0rem !important;
-  font-weight: 650 !important;
-}
+def get_user_id():
+    # Streamlit query params: user-specific id in URL (?u=xxxx)
+    qp = st.query_params
+    if "u" in qp and str(qp["u"]).strip():
+        return str(qp["u"]).strip()
+    uid = short_id()
+    st.query_params["u"] = uid
+    return uid
 
-/* input */
-div[data-baseweb="input"] input {
-  border-radius: 12px !important;
-  padding-top: 0.65rem !important;
-  padding-bottom: 0.65rem !important;
-}
+USER_ID = get_user_id()
 
-/* mobilde boşluklar */
-@media (max-width: 600px) {
-  .block-container { padding-left: 1rem; padding-right: 1rem; }
-  h1 { font-size: 2rem !important; }
-}
-</style>
-"""
-
-# -------------------- PERSISTENCE --------------------
-def load_stats():
-    if not SCORE_FILE.exists():
-        return 0, 0
+# -------------------- STORAGE --------------------
+def _load_users_db() -> dict:
+    if not USERS_DB.exists():
+        return {}
     try:
-        c, t = map(int, SCORE_FILE.read_text(encoding="utf-8").strip().split())
-        return c, t
+        return json.loads(USERS_DB.read_text(encoding="utf-8"))
     except Exception:
-        return 0, 0
+        return {}
 
-def save_stats(correct_delta: int, total_delta: int):
-    c, t = load_stats()
-    c += int(correct_delta)
-    t += int(total_delta)
-    SCORE_FILE.write_text(f"{c} {t}", encoding="utf-8")
+def _save_users_db(db: dict) -> None:
+    USERS_DB.write_text(json.dumps(db, ensure_ascii=False, indent=2), encoding="utf-8")
 
-def load_wrongs():
-    """returns list of tuples (question, user_answer, correct_answer)"""
-    if not WRONG_FILE.exists():
-        return []
-    out = []
-    for line in WRONG_FILE.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        parts = line.split("\t")
-        if len(parts) == 3:
-            out.append((parts[0], parts[1], parts[2]))
-    return out
+def get_user_record(uid: str) -> dict:
+    db = _load_users_db()
+    if uid not in db:
+        db[uid] = {
+            "stats": {"correct": 0, "total": 0},
+            "wrongs": [],  # list of {q,user,correct,ts}
+        }
+        _save_users_db(db)
+    return db[uid]
 
-def overwrite_wrongs(items):
-    with open(WRONG_FILE, "w", encoding="utf-8") as f:
-        for q, u, c in items:
-            f.write(f"{q}\t{u}\t{c}\n")
+def update_user_record(uid: str, record: dict) -> None:
+    db = _load_users_db()
+    db[uid] = record
+    _save_users_db(db)
 
-def log_wrong(question: str, user_answer: str, correct_answer: str):
-    with open(WRONG_FILE, "a", encoding="utf-8") as f:
-        f.write(f"{question}\t{user_answer}\t{correct_answer}\n")
+def add_stats(uid: str, correct_delta: int, total_delta: int) -> None:
+    rec = get_user_record(uid)
+    rec["stats"]["correct"] += int(correct_delta)
+    rec["stats"]["total"] += int(total_delta)
+    update_user_record(uid, rec)
 
-# -------------------- "LEARNING" LOGIC --------------------
-def wrong_weights():
-    """
-    Wrong listesine göre kemiklere ağırlık ver:
-    bir kemik yanlışlarda çok geçiyorsa daha sık sorulsun.
-    """
-    counts = {b["name"]: 1 for b in BONES}  # base weight 1
-    for q, _, correct in load_wrongs():
-        # Soru metninden kemik adını yakalamaya çalış
-        # (en stabil yöntem: bone name q içinde geçiyor mu)
-        for b in BONES:
-            if b["name"].lower() in q.lower():
-                counts[b["name"]] += 2
-        # ayrıca correct içinde latin adı vs varsa da ekleyelim (hafif)
-        for b in BONES:
-            if b["latin"].lower() in correct.lower():
-                counts[b["name"]] += 1
-    return counts
+def log_wrong(uid: str, q: str, user: str, correct: str) -> None:
+    rec = get_user_record(uid)
+    rec["wrongs"].append({"q": q, "user": user, "correct": correct, "ts": int(time.time())})
+    update_user_record(uid, rec)
 
-def pick_bone(pool):
-    """
-    Öğrenen seçim: ağırlıklı random.
-    """
-    weights = wrong_weights()
-    w = [weights.get(b["name"], 1) for b in pool]
-    return random.choices(pool, weights=w, k=1)[0]
+def get_wrongs(uid: str):
+    return get_user_record(uid)["wrongs"]
 
-# -------------------- QUIZ LOGIC --------------------
-def make_question(bone):
-    mode = random.choice(["latin", "category", "landmark"])
+def clear_wrongs(uid: str):
+    rec = get_user_record(uid)
+    rec["wrongs"] = []
+    update_user_record(uid, rec)
 
-    if mode == "latin":
-        return f"**{bone['name']}** kemiğinin Latin adı nedir?", bone["latin"], mode
+def reset_stats(uid: str):
+    rec = get_user_record(uid)
+    rec["stats"] = {"correct": 0, "total": 0}
+    update_user_record(uid, rec)
 
-    if mode == "category":
-        return f"**{bone['name']}** hangi kategori? (neurocranium / viscerocranium)", bone["category"], mode
+def export_progress(uid: str) -> str:
+    rec = get_user_record(uid)
+    payload = {"uid": uid, "exported_at": int(time.time()), "data": rec}
+    return json.dumps(payload, ensure_ascii=False, indent=2)
 
-    example = random.choice(bone["landmarks"]) if bone["landmarks"] else ""
-    return f"**{bone['name']}** ile ilişkili bir landmark yaz (örn: {example})", " / ".join(bone["landmarks"]), mode
+def import_progress(uid: str, json_text: str) -> tuple[bool, str]:
+    try:
+        payload = json.loads(json_text)
+        data = payload.get("data")
+        if not isinstance(data, dict) or "stats" not in data or "wrongs" not in data:
+            return False, "JSON formatı tanınmadı."
+        update_user_record(uid, data)
+        return True, "Import tamam."
+    except Exception:
+        return False, "JSON okunamadı."
 
-def check_answer(mode, bone, user, correct):
-    u = user.strip().lower()
-    if not u:
-        return False
-    if mode == "landmark":
-        return u in {x.lower() for x in bone["landmarks"]}
-    return u == correct.lower()
-
+# -------------------- HELPERS --------------------
 def bone_image_path(bone_name: str):
-    # frontal -> assets/bones/frontal.png
     p_png = ASSETS_DIR / f"{bone_name.lower()}.png"
     p_jpg = ASSETS_DIR / f"{bone_name.lower()}.jpg"
     if p_png.exists():
@@ -323,76 +174,131 @@ def bone_image_path(bone_name: str):
         return p_jpg
     return None
 
-# -------------------- APP --------------------
-st.set_page_config(page_title="Skull Trainer", page_icon="🧠", layout="centered")
-st.markdown(MOBILE_CSS, unsafe_allow_html=True)
+def wrong_weights(pool_names: list[str]) -> dict:
+    """
+    Wrong listesindeki kemik adı soru içinde geçiyorsa o kemiğin ağırlığını artır.
+    """
+    weights = {name: 1 for name in pool_names}
+    for item in get_wrongs(USER_ID):
+        q = item["q"].lower()
+        for name in pool_names:
+            if name.lower() in q:
+                weights[name] += 3
+    return weights
 
-st.title("🧠 Skull Trainer")
-st.caption("Evet, bunu gerçekten sen yaptın. Şimdi daha da güzel yapıyoruz.")
+def pick_weighted(pool: list[dict]) -> dict:
+    names = [b["name"] for b in pool]
+    wmap = wrong_weights(names)
+    weights = [wmap[b["name"]] for b in pool]
+    return random.choices(pool, weights=weights, k=1)[0]
 
-tab_quiz, tab_exam, tab_review, tab_stats = st.tabs(["Quiz", "Exam", "Review", "Stats"])
+def make_bone_question(bone: dict):
+    mode = random.choice(["latin", "category", "landmark"])
+    if mode == "latin":
+        return f"**{bone['name']}** kemiğinin Latin adı nedir?", bone["latin"], mode
+    if mode == "category":
+        return f"**{bone['name']}** hangi kategori? (neurocranium / viscerocranium)", bone["category"], mode
+    example = random.choice(bone["landmarks"]) if bone["landmarks"] else ""
+    return f"**{bone['name']}** ile ilişkili landmark yaz (örn: {example})", " / ".join(bone["landmarks"]), mode
 
-# ---------- STATS ----------
-with tab_stats:
-    st.subheader("📊 İstatistik")
-    c, t = load_stats()
-    st.metric("Toplam Doğru / Toplam Soru", f"{c}/{t}")
-    if t > 0:
-        st.progress(c / t)
-    colA, colB = st.columns(2)
-    with colA:
-        if st.button("🧹 Stats sıfırla"):
-            SCORE_FILE.write_text("0 0", encoding="utf-8")
-            st.success("Stats sıfırlandı.")
-    with colB:
-        if st.button("🧽 Wrong listesi temizle"):
-            overwrite_wrongs([])
-            st.success("Wrong listesi temizlendi.")
+def check_bone_answer(mode: str, bone: dict, user: str, correct: str) -> bool:
+    u = user.strip().lower()
+    if not u:
+        return False
+    if mode == "landmark":
+        return u in {x.lower() for x in bone["landmarks"]}
+    return u == correct.lower()
 
-# ---------- QUIZ ----------
-with tab_quiz:
-    st.subheader("🎯 Quiz (Öğrenen Mod)")
+def make_cn_question():
+    item = random.choice(CN_FORAMINA)
+    style = random.choice(["cn_to_foramen", "foramen_to_cn"])
+    if style == "cn_to_foramen":
+        q = f"**{item['cn']} ({item['name']})** hangi yapıdan geçer?"
+        a = item["foramen"]
+        return q, a, style
+    else:
+        q = f"**{item['foramen']}** içinden geçen sinir hangisi?"
+        a = f"{item['cn']} ({item['name']})"
+        return q, a, style
 
-    col1, col2 = st.columns(2)
-    with col1:
+def check_cn_answer(style: str, user: str, correct: str) -> bool:
+    u = user.strip().lower()
+    if not u:
+        return False
+    # foramen->cn sorusunda kullanıcı "CN X" yazsa da kabul edelim
+    if style == "foramen_to_cn":
+        return u in correct.lower() or u.replace(" ", "") in correct.lower().replace(" ", "")
+    return u == correct.lower()
+
+# -------------------- SIDEBAR --------------------
+st.sidebar.title("⚙️ Controls")
+st.sidebar.caption("Bu link senin kullanıcı kodunu içerir. Herkes kendi linkiyle kendi progress tutar.")
+base_url = "https://skull-trainer-nehir.streamlit.app"
+personal_link = f"{base_url}?u={USER_ID}"
+st.sidebar.code(personal_link)
+
+st.sidebar.write("**Kullanıcı kodun:**")
+st.sidebar.code(USER_ID)
+
+st.sidebar.divider()
+st.sidebar.write("**Export / Import**")
+export_text = export_progress(USER_ID)
+st.sidebar.download_button(
+    "⬇️ Progress indir (JSON)",
+    data=export_text,
+    file_name="skull_trainer_progress.json",
+    mime="application/json",
+    use_container_width=True,
+)
+
+import_box = st.sidebar.text_area("⬆️ JSON yapıştır (Import)", height=120, placeholder="Buraya export JSON'u yapıştır...")
+if st.sidebar.button("Import et", use_container_width=True):
+    ok, msg = import_progress(USER_ID, import_box)
+    st.sidebar.success(msg) if ok else st.sidebar.error(msg)
+
+# -------------------- UI --------------------
+st.title("🧠 Skull Trainer Web App")
+st.caption("Artık herkesin progress’i ayrı. Kaos bitti, bilim başladı.")
+
+tabs = st.tabs(["Skull Quiz", "Exam", "CN Foraminal", "Review", "Stats"])
+
+# ---------- SKULL QUIZ ----------
+with tabs[0]:
+    st.subheader("Skull Quiz (Öğrenen Mod)")
+    c1, c2 = st.columns(2)
+    with c1:
         n_q = st.number_input("Soru sayısı", 1, 50, 10)
-    with col2:
+    with c2:
         focus = st.selectbox("Kategori", ["hepsi", "neurocranium", "viscerocranium"])
-
     show_img = st.toggle("Görsel göster (assets varsa)", value=True)
 
-    if "quiz_state" not in st.session_state:
-        st.session_state.quiz_state = {}
+    if "skull" not in st.session_state:
+        st.session_state.skull = {"running": False}
 
-    def start_quiz():
+    def start_skull():
         pool = BONES[:]
         if focus != "hepsi":
             pool = [b for b in pool if b["category"] == focus]
-        random.shuffle(pool)
-        # quiz’de kemik tekrarına izin verelim mi? öğrenen modda evet mantıklı.
-        st.session_state.quiz_state = {
-            "pool": pool,
-            "i": 0,
-            "total": int(n_q),
-            "correct": 0,
-            "current": None,
-        }
+        st.session_state.skull = {"running": True, "pool": pool, "i": 0, "total": int(n_q), "correct": 0, "cur": None}
 
-    if st.button("🚀 Yeni Quiz Başlat"):
-        start_quiz()
+    st.button("🚀 Yeni Quiz Başlat", on_click=start_skull, use_container_width=True)
 
-    qs = st.session_state.quiz_state
-    if qs:
-        if qs["i"] < qs["total"]:
-            if qs["current"] is None:
-                bone = pick_bone(qs["pool"]) if qs["pool"] else random.choice(BONES)
-                q, ans, mode = make_question(bone)
-                qs["current"] = {"bone": bone, "q": q, "ans": ans, "mode": mode}
+    s = st.session_state.skull
+    if s.get("running"):
+        if s["i"] >= s["total"]:
+            s["running"] = False
+            add_stats(USER_ID, s["correct"], s["total"])
+            st.balloons()
+            st.success(f"🏁 Bitti! Skor: {s['correct']}/{s['total']}")
+        else:
+            if s["cur"] is None:
+                bone = pick_weighted(s["pool"]) if s["pool"] else random.choice(BONES)
+                q, ans, mode = make_bone_question(bone)
+                s["cur"] = {"bone": bone, "q": q, "ans": ans, "mode": mode}
 
-            cur = qs["current"]
+            cur = s["cur"]
             bone = cur["bone"]
-
-            st.write(f"**Soru {qs['i'] + 1}/{qs['total']}**")
+            st.write(f"**Soru {s['i']+1}/{s['total']}**")
             st.info(cur["q"])
 
             if show_img:
@@ -400,46 +306,35 @@ with tab_quiz:
                 if img:
                     st.image(str(img), use_container_width=True)
                 else:
-                    st.caption("🖼️ Görsel bulunamadı. (assets/bones içine eklersen otomatik çıkar.)")
+                    st.caption("🖼️ Görsel yok. (assets/bones içine eklersen otomatik çıkar.)")
 
-            user = st.text_input("Cevabın", key=f"quiz_answer_{qs['i']}")
-
-            cols = st.columns(2)
-            with cols[0]:
+            user = st.text_input("Cevabın", key=f"sk_ans_{s['i']}")
+            colA, colB = st.columns(2)
+            with colA:
                 if st.button("✅ Cevapla", use_container_width=True):
-                    ok = check_answer(cur["mode"], bone, user, cur["ans"])
+                    ok = check_bone_answer(cur["mode"], bone, user, cur["ans"])
                     if ok:
+                        s["correct"] += 1
                         st.success("Doğru ✅")
-                        qs["correct"] += 1
                     else:
                         st.error(f"Yanlış ❌ Doğru: {cur['ans']}")
-                        log_wrong(cur["q"], user, cur["ans"])
+                        log_wrong(USER_ID, cur["q"], user, cur["ans"])
+                    s["i"] += 1
+                    s["cur"] = None
+            with colB:
+                if st.button("⏭️ Pas", use_container_width=True):
+                    s["i"] += 1
+                    s["cur"] = None
 
-                    qs["i"] += 1
-                    qs["current"] = None
-
-                    if qs["i"] >= qs["total"]:
-                        save_stats(qs["correct"], qs["total"])
-                        st.balloons()
-                        st.success(f"🏁 Bitti! Skor: {qs['correct']}/{qs['total']}")
-
-            with cols[1]:
-                st.button("⏭️ Pas geç", use_container_width=True, on_click=lambda: qs.update({"i": qs["i"] + 1, "current": None}))
-
-        else:
-            st.success("Quiz tamamlandı. Yeni quiz başlatabilirsin.")
-
-# ---------- EXAM MODE ----------
-with tab_exam:
-    st.subheader("⏱️ Exam Mode (Zamanlı)")
-    st.caption("Sınav modu: timer + daha az şaka. (Biraz.)")
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
+# ---------- EXAM ----------
+with tabs[1]:
+    st.subheader("Exam Mode (Zamanlı)")
+    c1, c2, c3 = st.columns(3)
+    with c1:
         exam_q = st.number_input("Soru", 5, 60, 20)
-    with col2:
+    with c2:
         minutes = st.number_input("Süre (dk)", 1, 60, 5)
-    with col3:
+    with c3:
         exam_focus = st.selectbox("Kategori (exam)", ["hepsi", "neurocranium", "viscerocranium"])
 
     if "exam" not in st.session_state:
@@ -450,131 +345,134 @@ with tab_exam:
         if exam_focus != "hepsi":
             pool = [b for b in pool if b["category"] == exam_focus]
         st.session_state.exam = {
-            "running": True,
-            "pool": pool,
-            "i": 0,
-            "total": int(exam_q),
-            "correct": 0,
-            "current": None,
-            "start_ts": time.time(),
-            "limit_sec": int(minutes) * 60,
+            "running": True, "pool": pool, "i": 0, "total": int(exam_q), "correct": 0,
+            "cur": None, "start": time.time(), "limit": int(minutes) * 60
         }
 
-    cols = st.columns(2)
-    with cols[0]:
-        st.button("🧪 Exam başlat", use_container_width=True, on_click=start_exam)
-    with cols[1]:
-        if st.button("🛑 Exam durdur", use_container_width=True):
+    colA, colB = st.columns(2)
+    with colA:
+        st.button("🧪 Exam başlat", on_click=start_exam, use_container_width=True)
+    with colB:
+        if st.button("🛑 Durdur", use_container_width=True):
             st.session_state.exam = {"running": False}
 
-    ex = st.session_state.exam
-    if ex.get("running"):
-        elapsed = int(time.time() - ex["start_ts"])
-        left = max(0, ex["limit_sec"] - elapsed)
-
+    e = st.session_state.exam
+    if e.get("running"):
+        elapsed = int(time.time() - e["start"])
+        left = max(0, e["limit"] - elapsed)
         st.write(f"⏳ Kalan süre: **{left//60:02d}:{left%60:02d}**")
-        st.progress(1 - (left / ex["limit_sec"]) if ex["limit_sec"] else 0)
+        st.progress(1 - (left / e["limit"]) if e["limit"] else 0)
 
-        if left == 0:
-            ex["running"] = False
-            save_stats(ex["correct"], ex["total"])
-            st.error(f"⏰ Süre bitti! Skor: {ex['correct']}/{ex['total']}")
+        if left == 0 or e["i"] >= e["total"]:
+            e["running"] = False
+            add_stats(USER_ID, e["correct"], e["total"])
+            st.error(f"🏁 Exam bitti! Skor: {e['correct']}/{e['total']}")
         else:
-            if ex["i"] < ex["total"]:
-                if ex["current"] is None:
-                    bone = pick_bone(ex["pool"]) if ex["pool"] else random.choice(BONES)
-                    q, ans, mode = make_question(bone)
-                    ex["current"] = {"bone": bone, "q": q, "ans": ans, "mode": mode}
+            if e["cur"] is None:
+                bone = pick_weighted(e["pool"]) if e["pool"] else random.choice(BONES)
+                q, ans, mode = make_bone_question(bone)
+                e["cur"] = {"bone": bone, "q": q, "ans": ans, "mode": mode}
 
-                cur = ex["current"]
-                bone = cur["bone"]
+            cur = e["cur"]
+            bone = cur["bone"]
+            st.write(f"**Soru {e['i']+1}/{e['total']}**")
+            st.info(cur["q"])
+            user = st.text_input("Cevabın", key=f"ex_ans_{e['i']}")
+            if st.button("✅ Cevapla (Exam)", use_container_width=True):
+                ok = check_bone_answer(cur["mode"], bone, user, cur["ans"])
+                if ok:
+                    e["correct"] += 1
+                    st.success("✅")
+                else:
+                    st.error(f"❌ Doğru: {cur['ans']}")
+                    log_wrong(USER_ID, cur["q"], user, cur["ans"])
+                e["i"] += 1
+                e["cur"] = None
 
-                st.write(f"**Soru {ex['i'] + 1}/{ex['total']}**")
-                st.info(cur["q"])
-                user = st.text_input("Cevabın", key=f"exam_answer_{ex['i']}")
+# ---------- CN FORAMINA ----------
+with tabs[2]:
+    st.subheader("CN Foraminal Mode (Kurul)")
+    st.caption("Cranial nerves ve foramina ezberi. Ağlatır ama kazandırır.")
 
-                if st.button("✅ Cevapla (Exam)", use_container_width=True):
-                    ok = check_answer(cur["mode"], bone, user, cur["ans"])
+    if "cn" not in st.session_state:
+        st.session_state.cn = {"running": False}
+
+    def start_cn():
+        st.session_state.cn = {"running": True, "i": 0, "total": 15, "correct": 0, "cur": None}
+
+    st.button("⚡ CN Quiz Başlat", on_click=start_cn, use_container_width=True)
+
+    cn = st.session_state.cn
+    if cn.get("running"):
+        if cn["i"] >= cn["total"]:
+            cn["running"] = False
+            add_stats(USER_ID, cn["correct"], cn["total"])
+            st.success(f"🏁 CN bitti! Skor: {cn['correct']}/{cn['total']}")
+        else:
+            if cn["cur"] is None:
+                q, a, style = make_cn_question()
+                cn["cur"] = {"q": q, "a": a, "style": style}
+
+            cur = cn["cur"]
+            st.write(f"**Soru {cn['i']+1}/{cn['total']}**")
+            st.info(cur["q"])
+            user = st.text_input("Cevabın", key=f"cn_ans_{cn['i']}")
+
+            colA, colB = st.columns(2)
+            with colA:
+                if st.button("✅ Cevapla (CN)", use_container_width=True):
+                    ok = check_cn_answer(cur["style"], user, cur["a"])
                     if ok:
-                        ex["correct"] += 1
-                        st.success("✅")
+                        cn["correct"] += 1
+                        st.success("Doğru ✅")
                     else:
-                        st.error(f"❌ Doğru: {cur['ans']}")
-                        log_wrong(cur["q"], user, cur["ans"])
-
-                    ex["i"] += 1
-                    ex["current"] = None
-
-                    if ex["i"] >= ex["total"]:
-                        ex["running"] = False
-                        save_stats(ex["correct"], ex["total"])
-                        st.success(f"🏁 Exam bitti! Skor: {ex['correct']}/{ex['total']}")
-            else:
-                ex["running"] = False
-                save_stats(ex["correct"], ex["total"])
-                st.success(f"🏁 Exam bitti! Skor: {ex['correct']}/{ex['total']}")
+                        st.error(f"Yanlış ❌ Doğru: {cur['a']}")
+                        log_wrong(USER_ID, cur["q"], user, cur["a"])
+                    cn["i"] += 1
+                    cn["cur"] = None
+            with colB:
+                if st.button("⏭️ Pas (CN)", use_container_width=True):
+                    cn["i"] += 1
+                    cn["cur"] = None
 
 # ---------- REVIEW ----------
-with tab_review:
-    st.subheader("🧾 Review (Yanlışlar)")
-    wrongs = load_wrongs()
+with tabs[3]:
+    st.subheader("Review (Sana özel)")
+    wrongs = get_wrongs(USER_ID)
 
     if not wrongs:
-        st.write("Henüz yanlış yok. Ya çok iyisin ya da hiç denemedin. 😌")
+        st.write("Henüz yanlış yok. Ya efsanesin ya da hiç zorlamadın. 😌")
     else:
-        st.caption("Doğru yapınca o kart otomatik olarak listeden düşer.")
-        # review state
-        if "rev" not in st.session_state:
-            st.session_state.rev = {"idx": 0, "pool": wrongs[:]}
+        st.caption("Yanlış havuzu sadece sana ait. Arkadaşların seni sabote edemiyor, üzgünüm.")
+        # Son 20 yanlış
+        for item in list(reversed(wrongs[-20:])):
+            st.warning(item["q"])
+            st.write(f"Sen: **{item['user']}**")
+            st.write(f"Doğru: **{item['correct']}**")
+            st.divider()
 
-        if st.button("🔁 Review sıfırla"):
-            st.session_state.rev = {"idx": 0, "pool": load_wrongs()[:]}
+        colA, colB = st.columns(2)
+        with colA:
+            if st.button("🧽 Yanlışları temizle", use_container_width=True):
+                clear_wrongs(USER_ID)
+                st.success("Temizlendi. Yeni hayat.")
+        with colB:
+            st.caption("İstersen Export ile arkadaşına kendi progress’ını bile yollarsın.")
 
-        rev = st.session_state.rev
-        pool = rev["pool"]
+# ---------- STATS ----------
+with tabs[4]:
+    st.subheader("Stats (Sana özel)")
+    rec = get_user_record(USER_ID)
+    c = rec["stats"]["correct"]
+    t = rec["stats"]["total"]
+    st.metric("Toplam Doğru / Toplam Soru", f"{c}/{t}")
+    if t:
+        st.progress(c / t)
 
-        if rev["idx"] >= len(pool):
-            st.success("Review bitti. (Yanlışları ezdik.)")
-        else:
-            q, old_user, correct = pool[rev["idx"]]
-            st.info(q)
-            st.caption(f"Önceki cevabın: {old_user}")
-            user = st.text_input("Şimdi cevapla", key=f"rev_answer_{rev['idx']}")
-
-            cols = st.columns(2)
-            with cols[0]:
-                if st.button("✅ Kontrol et", use_container_width=True):
-                    if user.strip().lower() == correct.strip().lower():
-                        st.success("✅ Doğru! Listeden düştü.")
-                        # bu elemanı wrong dosyasından çıkar
-                        current_all = load_wrongs()
-                        # sadece ilk eşleşeni sil (aynı soru tekrar kaydolmuş olabilir)
-                        removed = False
-                        new_all = []
-                        for item in current_all:
-                            if not removed and item[0] == q and item[2] == correct:
-                                removed = True
-                                continue
-                            new_all.append(item)
-                        overwrite_wrongs(new_all)
-
-                        rev["idx"] += 1
-                    else:
-                        st.error(f"❌ Hâlâ yanlış. Doğru: {correct}")
-                        # güncel cevabı kaydet (eskiyi replace etmek için dosyayı yeniden yazıyoruz)
-                        current_all = load_wrongs()
-                        updated = False
-                        new_all = []
-                        for item in current_all:
-                            if not updated and item[0] == q and item[2] == correct:
-                                new_all.append((q, user, correct))
-                                updated = True
-                            else:
-                                new_all.append(item)
-                        overwrite_wrongs(new_all)
-
-                        rev["idx"] += 1
-
-            with cols[1]:
-                if st.button("⏭️ Atla", use_container_width=True):
-                    rev["idx"] += 1
+    colA, colB = st.columns(2)
+    with colA:
+        if st.button("🧹 Stats sıfırla", use_container_width=True):
+            reset_stats(USER_ID)
+            st.success("Sıfırlandı.")
+    with colB:
+        st.caption("Her kullanıcı ayrı tutulur. Linkteki `u=` parametresi bunu sağlar.")
