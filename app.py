@@ -357,7 +357,6 @@ with tabs[0]:
         if s["i"] >= s["total"]:
             s["running"] = False
             add_stats(USER_ID, s["correct"], s["total"])
-           bump_streak(USER_ID)
             st.balloons()
             st.success(f"🏁 Bitti! Skor: {s['correct']}/{s['total']}")
         else:
