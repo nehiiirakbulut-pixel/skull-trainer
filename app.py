@@ -295,7 +295,6 @@ def check_cn_answer(style: str, user: str, correct: str) -> bool:
 
 # -------------------- SIDEBAR --------------------
 st.sidebar.title("⚙️ Controls")
-st.sidebar.caption("Bu link senin kullanıcı kodunu içerir. Herkes kendi linkiyle kendi progress tutar.")
 base_url = "https://skull-trainer-nehir.streamlit.app"
 personal_link = f"{base_url}?u={USER_ID}"
 st.sidebar.code(personal_link)
@@ -328,7 +327,6 @@ if st.sidebar.button("Import et", use_container_width=True):
 
 # -------------------- UI --------------------
 st.title("🧠 Skull Trainer Web App")
-st.caption("Artık herkesin progress’i ayrı. Kaos bitti, bilim başladı.")
 
 tabs = st.tabs(["Skull Quiz", "Exam", "CN Foraminal", "Review", "Stats"])
 
