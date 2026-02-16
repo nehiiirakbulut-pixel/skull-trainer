@@ -17,25 +17,59 @@ ASSETS_DIR = Path("assets/bones")
 
 MOBILE_CSS = """
 <style>
-.block-container { padding-top: 1.1rem; padding-bottom: 3rem; max-width: 920px; }
-h1, h2, h3 { letter-spacing: -0.02em; }
+.block-container {
+  padding-top: 1.2rem;
+  padding-bottom: 3rem;
+  max-width: 900px;
+  background: linear-gradient(180deg, #f7fbff 0%, #eef4ff 100%);
+}
+
+h1 {
+  font-weight: 800;
+  color: #2b3cff;
+}
+
+h2, h3 {
+  color: #1f2fbf;
+}
 
 .stButton button {
-  border-radius: 14px !important;
-  padding: 0.72rem 1.0rem !important;
-  font-weight: 650 !important;
+  border-radius: 16px !important;
+  padding: 0.75rem 1.1rem !important;
+  font-weight: 700 !important;
+  background: linear-gradient(135deg, #4f6cff, #6ea8ff) !important;
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 6px 14px rgba(79,108,255,0.35);
 }
+
+.stButton button:hover {
+  transform: scale(1.03);
+}
+
 div[data-baseweb="input"] input {
-  border-radius: 12px !important;
-  padding-top: 0.65rem !important;
-  padding-bottom: 0.65rem !important;
+  border-radius: 14px !important;
+  border: 2px solid #4f6cff55 !important;
 }
+
+.stTabs [data-baseweb="tab"] {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.stTabs [aria-selected="true"] {
+  color: #4f6cff !important;
+}
+
 @media (max-width: 600px) {
-  .block-container { padding-left: 1rem; padding-right: 1rem; }
-  h1 { font-size: 2rem !important; }
+  .block-container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
 }
 </style>
 """
+
 st.markdown(MOBILE_CSS, unsafe_allow_html=True)
 
 # -------------------- DATA --------------------
