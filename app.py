@@ -1,6 +1,7 @@
 import json
 import random
 import time
+from datetime import date
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -356,6 +357,7 @@ with tabs[0]:
         if s["i"] >= s["total"]:
             s["running"] = False
             add_stats(USER_ID, s["correct"], s["total"])
+           bump_streak(USER_ID)
             st.balloons()
             st.success(f"🏁 Bitti! Skor: {s['correct']}/{s['total']}")
         else:
@@ -366,7 +368,8 @@ with tabs[0]:
 
             cur = s["cur"]
             bone = cur["bone"]
-            st.write(f"**Soru {s['i']+1}/{s['total']}**")
+            st.progress((s["i"] + 1) / s["total"])
+st.caption(f"✨ XP: {s['correct']*10}  |  🎯 Accuracy: {(s['correct']/max(1,s['i']))*100:.0f}%")
             st.info(cur["q"])
 
             if show_img:
@@ -384,8 +387,9 @@ with tabs[0]:
                     if ok:
                         s["correct"] += 1
                         st.success("Doğru ✅")
+st.toast("🔥 Nice! +10 XP", icon="🧠")
                     else:
-                        st.error(f"Yanlış ❌ Doğru: {cur['ans']}")
+                        st.toast("😈 Almost. Review’e düştü.", icon="📌")
                         log_wrong(USER_ID, cur["q"], user, cur["ans"])
                     s["i"] += 1
                     s["cur"] = None
@@ -531,6 +535,7 @@ with tabs[3]:
 with tabs[4]:
     st.subheader("Stats (Sana özel)")
     rec = get_user_record(USER_ID)
+st.metric("🔥 Streak", rec.get("streak", 0))
     c = rec["stats"]["correct"]
     t = rec["stats"]["total"]
     st.metric("Toplam Doğru / Toplam Soru", f"{c}/{t}")
@@ -542,4 +547,21 @@ with tabs[4]:
         if st.button("🧹 Stats sıfırla", use_container_width=True):
             reset_stats(USER_ID)
             st.success("Sıfırlandı.")
+  
+def bump_streak(uid: str):
+    rec = get_user_record(uid)
+    today = str(date.today())
+    last = rec.get("last_day")
+    streak = int(rec.get("streak", 0))
+
+    if last == today:
+        rec["streak"] = streak
+    else:
+        # dün müydü? (basit yaklaşım)
+        # eğer dün değilse streak sıfırlanır
+        rec["streak"] = streak + 1 if last else 1
+        rec["last_day"] = today
+
+    update_user_record(uid, rec)
+         
 
