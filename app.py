@@ -543,4 +543,3 @@ with tabs[4]:
             reset_stats(USER_ID)
             st.success("Sıfırlandı.")
     with colB:
-        st.caption("Her kullanıcı ayrı tutulur. Linkteki `u=` parametresi bunu sağlar.")
