@@ -17,58 +17,80 @@ ASSETS_DIR = Path("assets/bones")
 
 MOBILE_CSS = """
 <style>
-.block-container {
+/* Streamlit theme variables:
+   --background-color, --secondary-background-color, --text-color, --primary-color */
+
+:root{
+  --card-radius: 16px;
+}
+
+/* Genel container: tema neyse ona uy */
+.block-container{
   padding-top: 1.2rem;
   padding-bottom: 3rem;
   max-width: 900px;
-  background: linear-gradient(180deg, #f7fbff 0%, #eef4ff 100%);
 }
 
-h1 {
-  font-weight: 800;
-  color: #2b3cff;
+/* Kart hissi (her iki temada da güzel) */
+[data-testid="stVerticalBlockBorderWrapper"]{
+  border-radius: var(--card-radius) !important;
 }
 
-h2, h3 {
-  color: #1f2fbf;
-}
-
-.stButton button {
+/* Butonlar: primary rengi kullanır, her temada uyumlu */
+.stButton button{
   border-radius: 16px !important;
   padding: 0.75rem 1.1rem !important;
   font-weight: 700 !important;
-  background: linear-gradient(135deg, #4f6cff, #6ea8ff) !important;
-  color: white !important;
-  border: none !important;
-  box-shadow: 0 6px 14px rgba(79,108,255,0.35);
+  border: 1px solid rgba(127,127,127,0.25) !important;
 }
 
-.stButton button:hover {
-  transform: scale(1.03);
-}
-
-div[data-baseweb="input"] input {
+/* Input'lar */
+div[data-baseweb="input"] input{
   border-radius: 14px !important;
-  border: 2px solid #4f6cff55 !important;
 }
 
-.stTabs [data-baseweb="tab"] {
+/* Tabs */
+.stTabs [data-baseweb="tab"]{
   font-size: 1.05rem;
   font-weight: 700;
 }
 
-.stTabs [aria-selected="true"] {
-  color: #4f6cff !important;
+/* --- LIGHT THEME OVERRIDES --- */
+@media (prefers-color-scheme: light){
+  .block-container{
+    background: linear-gradient(180deg, rgba(245,250,255,1) 0%, rgba(238,244,255,1) 100%);
+  }
+  h1{ color: #1f2fbf; font-weight: 800; }
+  .stButton button{
+    background: linear-gradient(135deg, #4f6cff, #6ea8ff) !important;
+    color: white !important;
+    box-shadow: 0 6px 14px rgba(79,108,255,0.35);
+  }
+  div[data-baseweb="input"] input{
+    border: 2px solid rgba(79,108,255,0.28) !important;
+  }
 }
 
-@media (max-width: 600px) {
-  .block-container {
-    padding-left: 1rem;
-    padding-right: 1rem;
+/* --- DARK THEME OVERRIDES --- */
+@media (prefers-color-scheme: dark){
+  .block-container{
+    background: radial-gradient(1200px 600px at 20% 0%, rgba(90,110,255,0.18), transparent 50%),
+                radial-gradient(900px 500px at 90% 20%, rgba(60,200,255,0.12), transparent 50%);
+  }
+  h1{ color: #dbe6ff; font-weight: 800; }
+  .stButton button{
+    background: linear-gradient(135deg, #3f5bff, #2bd6ff) !important;
+    color: #071018 !important;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.35);
+    border: none !important;
+  }
+  div[data-baseweb="input"] input{
+    border: 2px solid rgba(43,214,255,0.22) !important;
   }
 }
 </style>
 """
+
 
 st.markdown(MOBILE_CSS, unsafe_allow_html=True)
 
