@@ -191,12 +191,19 @@ def import_progress(uid: str, json_text: str) -> tuple[bool, str]:
     try:
         payload = json.loads(json_text)
         data = payload.get("data")
-        if not isinstance(data, dict) or "stats" not in data or "wrongs" not in data:
-            return False, "JSON formatı tanınmadı."
+        if not isinstance(data, dict):
+            return False, "JSON formatı tanınmadı. (data yok)"
+        if "stats" not in data or "wrongs" not in data:
+            return False, "JSON formatı tanınmadı. (stats/wrongs eksik)"
+        if not isinstance(data["stats"], dict) or not isinstance(data["wrongs"], list):
+            return False, "JSON formatı bozuk."
         update_user_record(uid, data)
-        return True, "Import tamam."
+        return True, "Import tamam ✅"
+    except json.JSONDecodeError:
+        return False, "JSON okunamadı. (format hatalı)"
     except Exception:
-        return False, "JSON okunamadı."
+        return False, "Import sırasında beklenmeyen hata oldu."
+
 
 # -------------------- HELPERS --------------------
 def bone_image_path(bone_name: str):
@@ -287,8 +294,15 @@ st.sidebar.download_button(
 
 import_box = st.sidebar.text_area("⬆️ JSON yapıştır (Import)", height=120, placeholder="Buraya export JSON'u yapıştır...")
 if st.sidebar.button("Import et", use_container_width=True):
-    ok, msg = import_progress(USER_ID, import_box)
-    st.sidebar.success(msg) if ok else st.sidebar.error(msg)
+    if not import_box.strip():
+        st.sidebar.warning("Önce JSON yapıştır 😄")
+    else:
+        ok, msg = import_progress(USER_ID, import_box)
+        if ok:
+            st.sidebar.success(msg)
+            st.rerun()
+        else:
+            st.sidebar.error(msg)
 
 # -------------------- UI --------------------
 st.title("🧠 Skull Trainer Web App")
