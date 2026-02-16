@@ -534,7 +534,7 @@ with tabs[3]:
 with tabs[4]:
     st.subheader("Stats (Sana özel)")
     rec = get_user_record(USER_ID)
-st.metric("🔥 Streak", rec.get("streak", 0))
+    st.metric("🔥 Streak", rec.get("streak", 0))
     c = rec["stats"]["correct"]
     t = rec["stats"]["total"]
     st.metric("Toplam Doğru / Toplam Soru", f"{c}/{t}")
