@@ -368,7 +368,7 @@ with tabs[0]:
             cur = s["cur"]
             bone = cur["bone"]
             st.progress((s["i"] + 1) / s["total"])
-st.caption(f"✨ XP: {s['correct']*10}  |  🎯 Accuracy: {(s['correct']/max(1,s['i']))*100:.0f}%")
+            st.caption(f"✨ XP: {s['correct']*10}  |  🎯 Accuracy: {(s['correct']/max(1,s['i']))*100:.0f}%")
             st.info(cur["q"])
 
             if show_img:
